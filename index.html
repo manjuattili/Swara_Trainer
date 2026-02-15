@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carnatic Swara Ear Trainer</title>
+    <meta name="description" content="Interactive ear training app for Carnatic music. Practice identifying swaras with multiple difficulty levels.">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#ea580c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Swara Trainer">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        /* Prevent zoom on input focus (iOS) */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+        
+        /* Custom styling for range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ea580c;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ea580c;
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* Better touch targets for mobile */
+        button {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Prevent text selection on buttons */
+        button {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Smooth animations */
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* TOP INSTALL BUTTON - Always visible */
+        .top-install-button {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+            color: white;
+            padding: 16px;
+            z-index: 1001;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            cursor: pointer;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        
+        .top-install-button.show {
+            display: block;
+        }
+        
+        .top-install-button:active {
+            background: linear-gradient(135deg, #b91c1c 0%, #c2410c 100%);
+        }
+        
+        .install-button-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .app-content {
+            padding-top: 0;
+            transition: padding-top 0.3s ease;
+        }
+        
+        .app-content.with-install-button {
+            padding-top: 70px;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- TOP INSTALL BUTTON -->
+    <div id="topInstallButton" class="top-install-button">
+        <div class="install-button-content pulse">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>📱 INSTALL APP - TAP HERE!</span>
+        </div>
+    </div>
+    
+    <div id="root" class="app-content"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Lucide icons as inline SVG components
+        const Volume2 = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+        );
+
+        const Play = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+        );
+
+        const Square = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            </svg>
+        );
+
+        const RotateCcw = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+        );
+
+        const CarnaticEarTrainer = () => {
+          // Define the 7 basic swaras with their frequencies
+          const SWARAS = [
+            { name: 'Sa', fullName: 'Shadja', ratio: 1, frequency: 261.63 },
+            { name: 'Ri2', fullName: 'Chathusruthi Rishabha', ratio: 9/8, frequency: 261.63 * 9/8 },
+            { name: 'Ga3', fullName: 'Antara Gandhara', ratio: 5/4, frequency: 261.63 * 5/4 },
+            { name: 'Ma1', fullName: 'Suddha Madhyama', ratio: 4/3, frequency: 261.63 * 4/3 },
+            { name: 'Pa', fullName: 'Panchama', ratio: 3/2, frequency: 261.63 * 3/2 },
+            { name: 'Dha2', fullName: 'Chathusruthi Dhaivata', ratio: 5/3, frequency: 261.63 * 5/3 },
+            { name: 'Ni3', fullName: 'Kakali Nishada', ratio: 15/8, frequency: 261.63 * 15/8 }
+          ];
+
+          const [screen, setScreen] = useState('levelSelection');
+          const [level, setLevel] = useState(1);
+          const [selectedSwaras, setSelectedSwaras] = useState(SWARAS.map(s => s.name));
+          const [currentSwara, setCurrentSwara] = useState(null);
+          const [currentSequence, setCurrentSequence] = useState([]);
+          const [userGuessSequence, setUserGuessSequence] = useState([]);
+          const [score, setScore] = useState(0);
+          const [total, setTotal] = useState(0);
+          const [attempts, setAttempts] = useState([]);
+          const [feedback, setFeedback] = useState(null);
+          const [hasPlayed, setHasPlayed] = useState(false);
+          const [volume, setVolume] = useState(0.5);
+          
+          const audioContextRef = useRef(null);
+          const volumeRef = useRef(0.5);
+
+          // Initialize audio context on user interaction (required for mobile)
+          useEffect(() => {
+            const initAudio = () => {
+              if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+              }
+            };
+            
+            document.addEventListener('touchstart', initAudio, { once: true });
+            document.addEventListener('click', initAudio, { once: true });
+            
+            return () => {
+              if (audioContextRef.current) {
+                audioContextRef.current.close();
+              }
+            };
+          }, []);
+
+          useEffect(() => {
+            volumeRef.current = volume;
+          }, [volume]);
+
+          const playSwara = (frequency, duration = 1.5) => {
+            const audioContext = audioContextRef.current;
+            if (!audioContext) {
+              console.warn('AudioContext not initialized');
+              return;
+            }
+
+            if (audioContext.state === 'suspended') {
+              audioContext.resume();
+            }
+
+            const fundamental = audioContext.createOscillator();
+            const harmonic2 = audioContext.createOscillator();
+            const harmonic3 = audioContext.createOscillator();
+            
+            const gainNode = audioContext.createGain();
+            const gain2 = audioContext.createGain();
+            const gain3 = audioContext.createGain();
+            const masterGain = audioContext.createGain();
+
+            fundamental.connect(gainNode);
+            harmonic2.connect(gain2);
+            harmonic3.connect(gain3);
+            
+            gainNode.connect(masterGain);
+            gain2.connect(masterGain);
+            gain3.connect(masterGain);
+            masterGain.connect(audioContext.destination);
+
+            fundamental.type = 'sine';
+            fundamental.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            
+            harmonic2.type = 'sine';
+            harmonic2.frequency.setValueAtTime(frequency * 2, audioContext.currentTime);
+            
+            harmonic3.type = 'sine';
+            harmonic3.frequency.setValueAtTime(frequency * 3, audioContext.currentTime);
+
+            const targetGain = Math.max(0.01, volumeRef.current * 1.2);
+            
+            gainNode.gain.setValueAtTime(targetGain, audioContext.currentTime);
+            gain2.gain.setValueAtTime(targetGain * 0.3, audioContext.currentTime);
+            gain3.gain.setValueAtTime(targetGain * 0.15, audioContext.currentTime);
+            
+            masterGain.gain.setValueAtTime(0, audioContext.currentTime);
+            masterGain.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.05);
+            masterGain.gain.linearRampToValueAtTime(0.8, audioContext.currentTime + 0.2);
+            masterGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            fundamental.start(audioContext.currentTime);
+            harmonic2.start(audioContext.currentTime);
+            harmonic3.start(audioContext.currentTime);
+            
+            fundamental.stop(audioContext.currentTime + duration);
+            harmonic2.stop(audioContext.currentTime + duration);
+            harmonic3.stop(audioContext.currentTime + duration);
+          };
+
+          const playSequence = (swaras, delay = 0.6) => {
+            swaras.forEach((swara, index) => {
+              setTimeout(() => {
+                playSwara(swara.frequency);
+              }, index * delay * 1000);
+            });
+          };
+
+          const startTraining = () => {
+            setScore(0);
+            setTotal(0);
+            setAttempts([]);
+            setFeedback(null);
+            setHasPlayed(false);
+            setUserGuessSequence([]);
+            setScreen('training');
+            playRandomSwara();
+          };
+
+          const playRandomSwara = () => {
+            const availableSwaras = SWARAS.filter(s => selectedSwaras.includes(s.name));
+            
+            if (level === 1) {
+              const randomSwara = availableSwaras[Math.floor(Math.random() * availableSwaras.length)];
+              setCurrentSwara(randomSwara);
+              setCurrentSequence([randomSwara]);
+              playSwara(randomSwara.frequency);
+            } else {
+              const sequenceLength = level;
+              const sequence = [];
+              for (let i = 0; i < sequenceLength; i++) {
+                const randomSwara = availableSwaras[Math.floor(Math.random() * availableSwaras.length)];
+                sequence.push(randomSwara);
+              }
+              setCurrentSequence(sequence);
+              playSequence(sequence);
+            }
+            
+            setFeedback(null);
+            setHasPlayed(true);
+            setUserGuessSequence([]);
+          };
+
+          const handleGuess = (swaraName) => {
+            if (feedback) return;
+
+            if (level === 1) {
+              const correct = swaraName === currentSwara.name;
+              setTotal(prev => prev + 1);
+              if (correct) setScore(prev => prev + 1);
+              
+              setAttempts(prev => [...prev, { swara: swaraName, correct }]);
+              setFeedback({
+                correct,
+                message: correct 
+                  ? `Correct! It was ${currentSwara.name} (${currentSwara.fullName})` 
+                  : `Incorrect. It was ${currentSwara.name} (${currentSwara.fullName}), you selected ${swaraName}`
+              });
+            } else {
+              const newSequence = [...userGuessSequence, swaraName];
+              setUserGuessSequence(newSequence);
+              
+              if (newSequence.length === currentSequence.length) {
+                const correct = newSequence.every((s, i) => s === currentSequence[i].name);
+                setTotal(prev => prev + 1);
+                if (correct) setScore(prev => prev + 1);
+                
+                currentSequence.forEach(s => {
+                  setAttempts(prev => [...prev, { swara: s.name, correct }]);
+                });
+                
+                setFeedback({
+                  correct,
+                  message: correct
+                    ? `Perfect! The sequence was: ${currentSequence.map(s => s.name).join(' → ')}`
+                    : `Not quite. The sequence was: ${currentSequence.map(s => s.name).join(' → ')}, you selected: ${newSequence.join(' → ')}`
+                });
+              }
+            }
+          };
+
+          const handleNext = () => {
+            playRandomSwara();
+          };
+
+          const handleReplay = () => {
+            if (level === 1 && currentSwara) {
+              playSwara(currentSwara.frequency);
+            } else if (currentSequence.length > 0) {
+              playSequence(currentSequence);
+            }
+          };
+
+          const stopTraining = () => {
+            setScreen('stats');
+          };
+
+          const resetApp = () => {
+            setScreen('levelSelection');
+            setLevel(1);
+            setSelectedSwaras(SWARAS.map(s => s.name));
+            setScore(0);
+            setTotal(0);
+            setAttempts([]);
+            setFeedback(null);
+            setHasPlayed(false);
+          };
+
+          const toggleSwara = (swaraName) => {
+            setSelectedSwaras(prev => {
+              if (prev.includes(swaraName)) {
+                if (prev.length > 2) {
+                  return prev.filter(s => s !== swaraName);
+                }
+              } else {
+                return [...prev, swaraName];
+              }
+              return prev;
+            });
+          };
+
+          // Level Selection Screen
+          if (screen === 'levelSelection') {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4 md:p-8">
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
+                    <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-2">
+                      Carnatic Swara Ear Trainer
+                    </h1>
+                    <p className="text-center text-gray-600 mb-8">Practice identifying swaras by ear</p>
+
+                    <div className="mb-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-800">Select Difficulty</h2>
+                        <span className="text-orange-600 font-semibold">Level {level}</span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {[
+                          { num: 1, title: 'Beginner', desc: 'Identify single swaras' },
+                          { num: 2, title: 'Intermediate', desc: 'Identify 2-note sequences' },
+                          { num: 3, title: 'Advanced', desc: 'Identify 3-note sequences' }
+                        ].map(lvl => (
+                          <button
+                            key={lvl.num}
+                            onClick={() => setLevel(lvl.num)}
+                            className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                              level === lvl.num
+                                ? 'border-orange-500 bg-orange-50'
+                                : 'border-gray-200 hover:border-orange-300'
+                            }`}
+                          >
+                            <div className="font-semibold text-lg">{lvl.title}</div>
+                            <div className="text-sm text-gray-600">{lvl.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-800">Select Swaras</h2>
+                        <span className="text-sm text-gray-600">{selectedSwaras.length} selected</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {SWARAS.map(swara => (
+                          <button
+                            key={swara.name}
+                            onClick={() => toggleSwara(swara.name)}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              selectedSwaras.includes(swara.name)
+                                ? 'border-orange-500 bg-orange-100'
+                                : 'border-gray-200 bg-gray-50'
+                            } ${selectedSwaras.length === 2 && !selectedSwaras.includes(swara.name) ? 'opacity-50' : ''}`}
+                          >
+                            <div className="font-bold text-lg">{swara.name}</div>
+                            <div className="text-xs text-gray-600 truncate">{swara.fullName}</div>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">* Minimum 2 swaras required</p>
+                    </div>
+
+                    <div className="mb-8">
+                      <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-xl font-semibold text-gray-800">Volume</h2>
+                        <span className="text-sm text-gray-600">{Math.round(volume * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Volume2 size={20} className="text-gray-600" />
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={volume}
+                          onChange={(e) => setVolume(parseFloat(e.target.value))}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={startTraining}
+                      disabled={selectedSwaras.length < 2}
+                      className="w-full bg-orange-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Play size={24} />
+                      Start Training
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Training Screen
+          if (screen === 'training') {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4 md:p-8">
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-800">Level {level}</h2>
+                        <p className="text-sm text-gray-600">
+                          {level === 1 ? 'Single swara' : `${level}-note sequence`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-orange-600">{score}/{total}</div>
+                        <div className="text-sm text-gray-600">
+                          {total > 0 ? `${Math.round((score/total)*100)}%` : '0%'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {feedback && (
+                      <div className={`p-4 rounded-lg mb-6 ${
+                        feedback.correct ? 'bg-green-100 border-2 border-green-500' : 'bg-red-100 border-2 border-red-500'
+                      }`}>
+                        <div className={`font-semibold ${feedback.correct ? 'text-green-800' : 'text-red-800'}`}>
+                          {feedback.message}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-6">
+                      <button
+                        onClick={handleReplay}
+                        disabled={!hasPlayed}
+                        className="w-full bg-orange-600 text-white py-4 rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <Play size={24} />
+                        {hasPlayed ? 'Replay Note' : 'Play Note'}
+                      </button>
+                    </div>
+
+                    <div className="mb-6">
+                      {level >= 2 && userGuessSequence.length > 0 && (
+                        <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                          <div className="text-sm text-blue-800 mb-1">Your selection:</div>
+                          <div className="text-xl font-bold text-blue-900">
+                            {userGuessSequence.map((s, idx) => (
+                              <span key={idx}>
+                                {s}
+                                {idx < userGuessSequence.length - 1 && ' → '}
+                              </span>
+                            ))}
+                            {userGuessSequence.length < currentSequence.length && (
+                              <span className="text-gray-400"> → ?</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {SWARAS.filter(s => selectedSwaras.includes(s.name)).map(swara => (
+                          <button
+                            key={swara.name}
+                            onClick={() => handleGuess(swara.name)}
+                            disabled={!!feedback}
+                            className={`p-4 rounded-lg border-2 transition-all ${
+                              feedback && level === 1 && swara.name === currentSwara.name
+                                ? 'border-green-500 bg-green-100'
+                                : feedback && level >= 2 && currentSequence.map(s => s.name).includes(swara.name)
+                                ? 'border-green-500 bg-green-100'
+                                : 'border-orange-300 bg-white hover:bg-orange-50'
+                            } disabled:cursor-not-allowed`}
+                          >
+                            <div className="text-xl font-bold">{swara.name}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      {feedback && (
+                        <button
+                          onClick={handleNext}
+                          className="flex-1 bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Play size={20} />
+                          Next
+                        </button>
+                      )}
+                      <button
+                        onClick={stopTraining}
+                        className={`${feedback ? 'flex-1' : 'w-full'} bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2`}
+                      >
+                        <Square size={20} />
+                        Stop & View Stats
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Stats Screen
+          if (screen === 'stats') {
+            const accuracy = total > 0 ? ((score / total) * 100).toFixed(1) : 0;
+            
+            const swaraStats = {};
+            attempts.forEach(attempt => {
+              if (!swaraStats[attempt.swara]) {
+                swaraStats[attempt.swara] = { correct: 0, total: 0 };
+              }
+              swaraStats[attempt.swara].total++;
+              if (attempt.correct) {
+                swaraStats[attempt.swara].correct++;
+              }
+            });
+
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4 md:p-8">
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
+                    <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+                      {total > 0 ? 'Training Complete!' : 'No attempts yet'}
+                    </h2>
+
+                    {total > 0 ? (
+                      <>
+                        <div className="grid grid-cols-3 gap-4 mb-8">
+                          <div className="bg-orange-100 p-6 rounded-lg text-center">
+                            <div className="text-4xl font-bold text-orange-600">{score}</div>
+                            <div className="text-gray-700">Correct</div>
+                          </div>
+                          <div className="bg-red-100 p-6 rounded-lg text-center">
+                            <div className="text-4xl font-bold text-red-600">{total - score}</div>
+                            <div className="text-gray-700">Incorrect</div>
+                          </div>
+                          <div className="bg-green-100 p-6 rounded-lg text-center">
+                            <div className="text-4xl font-bold text-green-600">{accuracy}%</div>
+                            <div className="text-gray-700">Accuracy</div>
+                          </div>
+                        </div>
+
+                        <div className="mb-8">
+                          <h3 className="text-xl font-semibold text-gray-800 mb-4">Performance by Swara</h3>
+                          <div className="space-y-3">
+                            {Object.entries(swaraStats).map(([swaraName, stats]) => {
+                              const swaraAccuracy = ((stats.correct / stats.total) * 100).toFixed(0);
+                              const swara = SWARAS.find(s => s.name === swaraName);
+                              return (
+                                <div key={swaraName} className="bg-gray-50 p-4 rounded-lg">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <div>
+                                      <span className="font-bold text-lg">{swaraName}</span>
+                                      {swara && <span className="text-gray-600 text-sm ml-2">({swara.fullName})</span>}
+                                    </div>
+                                    <span className="text-lg font-semibold">{stats.correct}/{stats.total}</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-orange-500 h-2 rounded-full transition-all"
+                                      style={{ width: `${swaraAccuracy}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 text-lg mb-4">You haven't made any attempts yet.</p>
+                        <p className="text-gray-500">Start training to see your stats!</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={resetApp}
+                      className="w-full bg-orange-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw size={24} />
+                      Start New Session
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CarnaticEarTrainer />);
+    </script>
+
+    <!-- PWA Install Button Logic -->
+    <script>
+        let deferredPrompt;
+        const topInstallButton = document.getElementById('topInstallButton');
+        const appContent = document.getElementById('root');
+
+        // Check if app is already installed
+        const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+        // Show top install button immediately if not installed
+        if (!isInstalled) {
+            setTimeout(() => {
+                topInstallButton.classList.add('show');
+                appContent.classList.add('with-install-button');
+            }, 500);
+        }
+
+        // Handle install prompt event (Android Chrome)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            topInstallButton.classList.add('show');
+            appContent.classList.add('with-install-button');
+        });
+
+        // Top button click handler
+        topInstallButton.addEventListener('click', async () => {
+            // For iOS - show instructions
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                alert('📱 HOW TO INSTALL ON iPHONE:\n\n1. Tap the SHARE button (⬆️) at the BOTTOM of Safari\n\n2. Scroll down and tap "Add to Home Screen"\n\n3. Tap "Add"\n\n✅ The app will appear on your home screen!');
+            } 
+            // For Android Chrome - trigger install
+            else if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    topInstallButton.classList.remove('show');
+                    appContent.classList.remove('with-install-button');
+                }
+                deferredPrompt = null;
+            }
+            // For other browsers
+            else {
+                alert('📱 TO INSTALL THIS APP:\n\n• iPhone: Tap Share (⬆️) → "Add to Home Screen"\n\n• Android: Tap menu (⋮) → "Install app"\n\n• Desktop Chrome: Click install icon in address bar');
+            }
+        });
+
+        // Hide top button if app is installed
+        window.addEventListener('appinstalled', () => {
+            topInstallButton.classList.remove('show');
+            appContent.classList.remove('with-install-button');
+        });
+    </script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully');
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
